@@ -1,0 +1,76 @@
+---
+# Add the AD DNS CNAME record that the Glance dashboard needs.
+#
+# The name points at lproxy.echoinggreen.net, matching every other
+# service name in the zone, which resolves to the local Nginx Proxy
+# Manager (10.77.110.10). The public Route 53 record is the matching
+# half and is created separately.
+#
+# Run from ore-peachpi1:
+#   ansible-playbook -i hosts add-dns-records.yml
+- name: Add AD DNS record for the Glance dashboard
+  hosts: ore-dc-101-1.echoinggreen.info
+  gather_facts: false
+  vars:
+    dns_zone: echoinggreen.net
+    dns_records:
+      - { name: "glance", target: "lproxy.echoinggreen.net" }
+  tasks:
+    - name: "Check for existing records before creating"
+      ansible.windows.win_shell: |
+        $zone = '{{ dns_zone }}'
+        foreach ($r in @('{{ dns_records | map(attribute="name") | join("','") }}')) {
+          $a = @(Get-DnsServerResourceRecord -ZoneName $zone -Name $r -ErrorAction SilentlyContinue)
+          Write-Output ("EXISTS|" + $r + "|" + $a.Count)
+        }
+      register: precheck
+      changed_when: false
+
+    - name: "Write precheck to a file on the DC (audit trail)"
+      ansible.windows.win_shell: |
+        Set-Content -Path 'C:\Windows\Temp\glance-dns-precheck.log' -Value @'
+        {{ precheck.stdout }}
+        '@
+      changed_when: false
+
+    - name: "Create missing CNAME records"
+      ansible.windows.win_shell: |
+        $zone = '{{ dns_zone }}'
+        foreach ($pair in @('{{ dns_records | map(attribute="name") | zip(dns_records | map(attribute="target")) | map("join",":") | join("','") }}')) {
+          $parts = $pair -split ':', 2
+          $name = $parts[0]; $target = $parts[1]
+          $existing = @(Get-DnsServerResourceRecord -ZoneName $zone -Name $name -ErrorAction SilentlyContinue)
+          if ($existing.Count -gt 0) {
+            Write-Output ("SKIP|" + $name + "|already present")
+            continue
+          }
+          try {
+            Add-DnsServerResourceRecord -ZoneName $zone -Name $name -HostNameAlias $target -TimeToLive (New-TimeSpan -Hours 1) -CName -ErrorAction Stop
+            Write-Output ("CREATED|" + $name + "|" + $target)
+          } catch {
+            Write-Output ("FAILED|" + $name + "|" + $_.Exception.Message)
+          }
+        }
+      register: created
+
+    - name: "Write create results to a file on the DC (audit trail)"
+      ansible.windows.win_shell: |
+        Set-Content -Path 'C:\Windows\Temp\glance-dns-create.log' -Value @'
+        {{ created.stdout }}
+        '@
+      changed_when: false
+
+    - name: "Assert every record now exists on the authoring DC"
+      ansible.windows.win_shell: |
+        $zone = '{{ dns_zone }}'
+        $bad = 0
+        foreach ($r in @('{{ dns_records | map(attribute="name") | join("','") }}')) {
+          $a = @(Get-DnsServerResourceRecord -ZoneName $zone -Name $r -ErrorAction SilentlyContinue)
+          Write-Output ("VERIFY|" + $r + "|" + $a.Count)
+          if ($a.Count -eq 0) { $bad = 1 }
+        }
+        Write-Output ("BADCOUNT|" + $bad)
+        exit $bad
+      register: verified
+      changed_when: false
+      failed_when: "'BADCOUNT|0' not in verified.stdout"

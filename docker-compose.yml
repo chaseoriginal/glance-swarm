@@ -1,0 +1,44 @@
+services:
+  glance:
+    image: glanceapp/glance:v0.8.7
+    # Port published on the node itself (mode: host). The swarm ingress mesh
+    # drops IPv4 to IPv6-only listeners, so host mode is the safe form here.
+    # The published port is the port Nginx Proxy Manager dials on 110-1.
+    ports:
+      - target: 8084
+        published: 8084
+        protocol: tcp
+        mode: host
+    volumes:
+      # Node-local config volume. Seeded from config/glance.yml in this repo.
+      # Glance only ever READS this file, so the volume stays a byte-identical
+      # copy of the repo file and git stays authoritative for the layout.
+      - glance-swarm_config:/app/config
+    environment:
+      - TZ=America/Chicago
+      # Placeholders expanded by Glance at parse time from these two values.
+      # They come from the Portainer stack env, never from this repo.
+      - GLANCE_SECRET_KEY=${GLANCE_SECRET_KEY}
+      - GLANCE_PASSWORD_HASH=${GLANCE_PASSWORD_HASH}
+    deploy:
+      placement:
+        constraints:
+          # The config volume and the published port are node-local, so the
+          # task must stay on the node that runs NPM.
+          - node.hostname==ore-dock-110-1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://127.0.0.1:8084/api/healthz
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+volumes:
+  glance-swarm_config:
+    name: glance-swarm_config

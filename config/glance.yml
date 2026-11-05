@@ -1,0 +1,423 @@
+# Glance dashboard - 110 network fleet view
+#
+# This file is the AUTHORITATIVE copy of the dashboard configuration.
+# It is seeded byte-for-byte into the `glance-swarm_config` volume on
+# ore-dock-110-1 and mounted at /app/config/glance.yml in the container.
+#
+# There is deliberately NO secret material in this file. Glance expands
+# dollar-brace variables from the process environment at parse time, so
+# the auth secret key and the bcrypt password hash arrive via the
+# Portainer stack env. That keeps this repo safe to clone anonymously.
+#
+# NOTE: the parser does NOT skip comments, so never write a literal
+# dollar-brace variable in a comment here - it will be expanded and the
+# config will fail to load with "environment variable ... not found".
+
+server:
+  # Must match the published port in docker-compose.yml.
+  port: 8084
+  # Nginx Proxy Manager is in front of this service and sets
+  # X-Forwarded-For. Glance uses the last entry in that header for auth
+  # rate limiting, which is the real client address.
+  proxied: true
+
+auth:
+  # base64 of exactly 64 random bytes. Signs the session cookie.
+  secret-key: "${GLANCE_SECRET_KEY}"
+  users:
+    # Username for the login form. The PASSWORD is the same one that
+    # unlocks the Homepage dashboard (dash.echoinggreen.net), so one
+    # credential covers both dashboards.
+    chase:
+      password-hash: "${GLANCE_PASSWORD_HASH}"
+
+branding:
+  app-name: Glance
+  logo-text: Chase Fleet
+
+theme:
+  background-color: "hsl(240, 10%, 7%)"
+  primary-color: "hsl(150, 60%, 50%)"
+
+pages:
+  # ------------------------------------------------------------------
+  # Fleet status. One monitor widget per category, laid out two across.
+  # The monitor widget is the ONLY way to see fleet-wide status from
+  # Glance: the docker-containers widget is node-local and its names
+  # leak Swarm task IDs.
+  # ------------------------------------------------------------------
+  - name: Fleet
+    width: wide
+    columns:
+      - size: small
+        widgets:
+          - type: clock
+            hour-format: 12h
+            timezones:
+              - timezone: America/Chicago
+                label: CT
+              - timezone: UTC
+                label: UTC
+
+          - type: releases
+            title: New Versions
+            limit: 10
+            collapse-after: 5
+            repositories:
+              - sonarr/sonarr
+              - radarr/radarr
+              - lidarr/lidarr
+              - prowlarr/prowlarr
+              - jellyfin/jellyfin-web
+              - tautulli/tautulli
+
+      - size: full
+        widgets:
+          - type: split-column
+            max-columns: 2
+            widgets:
+              - type: monitor
+                title: Media
+                sites:
+                  - title: Plex
+                    url: https://myplex.echoinggreen.net/web
+                    check-url: https://myplex.echoinggreen.net/web
+                    icon: si:plex
+                  - title: Jellyfin
+                    url: https://jelly.echoinggreen.net
+                    icon: si:jellyfin
+                  - title: Tautulli
+                    url: https://tautulli.echoinggreen.net
+                    icon: di:tautulli
+                  - title: Seerr
+                    url: https://requests.echoinggreen.net
+                    icon: di:overseerr
+                  - title: Nextcloud
+                    url: https://nextcloud.echoinggreen.net
+                    timeout: 10s
+                    icon: si:nextcloud
+                  - title: Photos
+                    url: https://photos.echoinggreen.net
+                    icon: si:immich
+                  - title: Subsonic
+                    url: https://media.echoinggreen.net
+                    icon: di:airsonic
+                  - title: Organizr
+                    url: https://home.echoinggreen.net
+                    icon: di:organizr.png
+
+              - type: monitor
+                title: Books
+                sites:
+                  - title: Calibre-Web
+                    url: https://calibre-web.echoinggreen.net
+                    icon: di:calibre-web
+                  - title: Readarr
+                    url: https://readarr.echoinggreen.net
+                    icon: di:readarr
+
+              - type: monitor
+                title: Servarr
+                sites:
+                  - title: Radarr
+                    url: https://radarr.echoinggreen.net
+                    icon: si:radarr
+                  - title: Sonarr
+                    url: https://sonarr.echoinggreen.net
+                    icon: si:sonarr
+                  - title: Prowlarr
+                    url: https://prowlarr.echoinggreen.net
+                    icon: di:prowlarr
+                  - title: Bazarr
+                    url: https://bazarr.echoinggreen.net
+                    icon: di:bazarr
+                  - title: Lidarr
+                    url: https://lidarr.echoinggreen.net
+                    icon: di:lidarr
+                  - title: TDarr
+                    url: https://tdarr.echoinggreen.net
+                    icon: di:tdarr
+
+              - type: monitor
+                title: Downloads
+                sites:
+                  - title: SABnzbd
+                    url: https://sab.echoinggreen.net
+                    icon: di:sabnzbd
+                  - title: SABnzbd 4K
+                    url: https://sab4k.echoinggreen.net
+                    icon: di:sabnzbd
+                  - title: qBittorrent
+                    url: https://qbit.echoinggreen.net
+                    icon: si:qbittorrent
+                  - title: Pinchflat
+                    url: https://pinch.echoinggreen.net
+                    icon: di:handbrake
+
+              - type: monitor
+                title: Infrastructure
+                sites:
+                  - title: Portainer
+                    url: https://port-110-1.echoinggreen.net
+                    icon: si:portainer
+                  - title: Homepage
+                    url: https://dash.echoinggreen.net
+                    check-url: https://dash.echoinggreen.net/api/healthcheck
+                    icon: si:homepage
+                  - title: Glance
+                    url: https://glance.echoinggreen.net
+                    icon: si:glance
+                  - title: Authentik
+                    url: https://auth.echoinggreen.net
+                    timeout: 10s
+                    icon: si:authentik
+                  - title: Tracearr
+                    url: https://tracearr.echoinggreen.net
+                    icon: di:tracearr
+                  - title: NGINX Proxy Manager
+                    url: https://cus-proxy.echoinggreen.net
+                    icon: si:nginx
+
+              - type: monitor
+                title: Monitoring
+                sites:
+                  - title: Notifiarr
+                    url: https://notifiarr-w.echoinggreen.net
+                    icon: di:notifiarr
+                  - title: Graylog
+                    url: https://graylog.echoinggreen.net
+                    icon: si:graylog
+                  - title: Uptime Kuma
+                    url: https://status.echoinggreen.net
+                    icon: si:uptimekuma
+                  - title: Check MK
+                    url: https://monitor.echoinggreen.net
+                    icon: si:checkmk
+                  - title: Wazuh
+                    url: https://sec.echoinggreen.net
+                    icon: di:wazuh
+
+              - type: monitor
+                title: Home & Network
+                sites:
+                  - title: Home Assistant
+                    url: https://ha.echoinggreen.net
+                    icon: si:homeassistant
+                  - title: Homebridge
+                    url: https://hb.echoinggreen.net
+                    icon: si:homebridge
+                  - title: Pi-hole 1
+                    url: https://hole1.echoinggreen.net/admin/
+                    check-url: https://hole1.echoinggreen.net/admin/
+                    icon: si:pihole
+                  - title: Pi-hole 2
+                    url: https://hole2.echoinggreen.net/admin/
+                    check-url: https://hole2.echoinggreen.net/admin/
+                    timeout: 10s
+                    icon: si:pihole
+                  - title: Pi-hole 3
+                    url: https://hole3.echoinggreen.net/admin/
+                    check-url: https://hole3.echoinggreen.net/admin/
+                    icon: si:pihole
+                  - title: UniFi
+                    url: https://udm.echoinggreen.net
+                    icon: di:unifi
+
+  # ------------------------------------------------------------------
+  # Links. Mirrors the Homepage bookmark set, split across two columns.
+  # ------------------------------------------------------------------
+  - name: Links
+    width: wide
+    columns:
+      - size: full
+        widgets:
+          - type: bookmarks
+            groups:
+              - title: Media
+                links:
+                  - title: Plex
+                    url: https://myplex.echoinggreen.net/web
+                    icon: si:plex
+                  - title: Jellyfin
+                    url: https://jelly.echoinggreen.net
+                    icon: si:jellyfin
+                  - title: Tautulli
+                    url: https://tautulli.echoinggreen.net
+                    icon: di:tautulli
+                  - title: Seerr
+                    url: https://requests.echoinggreen.net
+                    icon: di:overseerr
+                  - title: Nextcloud
+                    url: https://nextcloud.echoinggreen.net
+                    icon: si:nextcloud
+                  - title: Photos
+                    url: https://photos.echoinggreen.net
+                    icon: si:immich
+                  - title: Subsonic
+                    url: https://media.echoinggreen.net
+                    icon: di:airsonic
+                  - title: Organizr
+                    url: https://home.echoinggreen.net
+                    icon: di:organizr.png
+              - title: Books
+                links:
+                  - title: Calibre-Web
+                    url: https://calibre-web.echoinggreen.net
+                    icon: di:calibre-web
+                  - title: Calibre
+                    url: https://calibre.echoinggreen.net
+                    icon: di:calibre
+                  - title: Readarr
+                    url: https://readarr.echoinggreen.net
+                    icon: di:readarr
+              - title: Servarr
+                links:
+                  - title: Radarr
+                    url: https://radarr.echoinggreen.net
+                    icon: si:radarr
+                  - title: Sonarr
+                    url: https://sonarr.echoinggreen.net
+                    icon: si:sonarr
+                  - title: Prowlarr
+                    url: https://prowlarr.echoinggreen.net
+                    icon: di:prowlarr
+                  - title: Bazarr
+                    url: https://bazarr.echoinggreen.net
+                    icon: di:bazarr
+                  - title: Lidarr
+                    url: https://lidarr.echoinggreen.net
+                    icon: di:lidarr
+                  - title: TDarr
+                    url: https://tdarr.echoinggreen.net
+                    icon: di:tdarr
+              - title: Downloads
+                links:
+                  - title: SABnzbd
+                    url: https://sab.echoinggreen.net
+                    icon: di:sabnzbd
+                  - title: SABnzbd 4K
+                    url: https://sab4k.echoinggreen.net
+                    icon: di:sabnzbd
+                  - title: qBittorrent
+                    url: https://qbit.echoinggreen.net
+                    icon: si:qbittorrent
+                  - title: Pinchflat
+                    url: https://pinch.echoinggreen.net
+                    icon: di:handbrake
+                  - title: Pre-Roll Plus W
+                    url: https://prpw.echoinggreen.net
+                    icon: si:letterboxd
+                  - title: Pre-Roll Plus L
+                    url: https://prpl.echoinggreen.net
+                    icon: si:letterboxd
+                  - title: Tracearr
+                    url: https://tracearr.echoinggreen.net
+                    icon: di:tracearr
+
+      - size: full
+        widgets:
+          - type: bookmarks
+            groups:
+              - title: Management
+                links:
+                  - title: Portainer 110-1
+                    url: https://port-110-1.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-2
+                    url: https://port-110-2.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-3
+                    url: https://port-110-3.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-4
+                    url: https://port-110-4.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-5
+                    url: https://port-110-5.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-6
+                    url: https://port-110-6.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-7
+                    url: https://port-110-7.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-8
+                    url: https://port-110-8.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-9
+                    url: https://port-110-9.echoinggreen.net
+                    icon: si:portainer
+                  - title: Portainer 110-10
+                    url: https://port-110-10.echoinggreen.net
+                    icon: si:portainer
+                  - title: Glance
+                    url: https://glance.echoinggreen.net
+                    icon: si:glance
+                  - title: Homepage
+                    url: https://dash.echoinggreen.net
+                    icon: si:homepage
+                  - title: Authentik
+                    url: https://auth.echoinggreen.net
+                    icon: si:authentik
+                  - title: NGINX Proxy Manager
+                    url: https://cus-proxy.echoinggreen.net
+                    icon: si:nginx
+                  - title: Confluence
+                    url: https://collc.atlassian.net/wiki/home
+                    icon: si:confluence
+                  - title: Jira
+                    url: https://collc.atlassian.net/jira/projects
+                    icon: si:jira
+                  - title: Remote Access
+                    url: https://portal.echoinggreen.net
+                    icon: si:apacheguacamole
+              - title: Monitoring
+                links:
+                  - title: Check MK
+                    url: https://monitor.echoinggreen.net
+                    icon: si:checkmk
+                  - title: Graylog
+                    url: https://graylog.echoinggreen.net
+                    icon: si:graylog
+                  - title: Azure Uptime Kuma
+                    url: https://status.echoinggreen.net/dashboard
+                    icon: si:uptimekuma
+                  - title: Wazuh
+                    url: https://sec.echoinggreen.net
+                    icon: di:wazuh
+                  - title: Notifiarr
+                    url: https://notifiarr.echoinggreen.net
+                    icon: di:notifiarr
+                  - title: Notifiarr Monitor
+                    url: https://notifiarr-w.echoinggreen.net
+                    icon: di:notifiarr
+              - title: Home
+                links:
+                  - title: Home Assistant
+                    url: https://ha.echoinggreen.net
+                    icon: si:homeassistant
+                  - title: Homebridge
+                    url: https://hb.echoinggreen.net
+                    icon: si:homebridge
+              - title: Network
+                links:
+                  - title: Dream Machine
+                    url: https://udm.echoinggreen.net
+                    icon: di:unifi
+                  - title: Pi-hole 1
+                    url: https://hole1.echoinggreen.net/admin/
+                    icon: si:pihole
+                  - title: Pi-hole 2
+                    url: https://hole2.echoinggreen.net/admin/
+                    icon: si:pihole
+                  - title: Pi-hole 3
+                    url: https://hole3.echoinggreen.net/admin/
+                    icon: si:pihole
+              - title: Virtualization
+                links:
+                  - title: vCenter
+                    url: https://vcenter.echoinggreen.net/ui
+                    icon: si:vmware
+                  - title: TrueNAS Scale
+                    url: https://storage.echoinggreen.net
+                    icon: si:truenas
