@@ -1,6 +1,6 @@
 services:
   glance:
-    image: glanceapp/glance:v0.8.7
+    image: glanceapp/glance:v0.8.8
     # Port published on the node itself (mode: host). The swarm ingress mesh
     # drops IPv4 to IPv6-only listeners, so host mode is the safe form here.
     # The published port is the port Nginx Proxy Manager dials on 110-1.
